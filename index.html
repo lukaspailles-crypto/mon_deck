@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deck de Lukas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            gap: 30px;
+        }
+        .deck-list-container {
+            flex: 1;
+        }
+        .charts-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+        .category-group {
+            margin-bottom: 20px;
+        }
+        .category-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 5px;
+            padding-bottom: 3px;
+        }
+        .card-row {
+            display: flex;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .card-row:hover {
+            background-color: #f9f9f9;
+        }
+        .card-qty {
+            width: 30px;
+            color: #666;
+        }
+        .card-name {
+            flex: 1;
+            font-weight: 500;
+        }
+        .card-cost {
+            text-align: right;
+        }
+        
+        /* Style des symboles de mana */
+        .mana-icon {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 18px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 2px;
+            color: black;
+            box-shadow: -1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .mana-W { background-color: #f8f6d8; }
+        .mana-U { background-color: #c1d7e9; }
+        .mana-B { background-color: #bab1ab; color: white; }
+        .mana-R { background-color: #e49977; }
+        .mana-G { background-color: #a3c095; }
+        .mana-C, .mana-num { background-color: #cac5c0; }
+
+        /* Image au survol */
+        #card-preview {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            width: 250px;
+            max-width: min(250px, 40vw);
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 12px;
+            pointer-events: none;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+        }
+        
+        .chart-box {
+            background: #fff;
+            border: 1px solid #eaeaea;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 800px) {
+            .container { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Colonne Gauche : Liste des cartes -->
+        <div class="deck-list-container">
+            <h1>L'Arène de Kharos</h1>
+            <div id="deck-list"></div>
+        </div>
+
+        <!-- Colonne Droite : Graphiques -->
+        <div class="charts-container">
+            <div class="chart-box">
+                <h3>Mana Values</h3>
+                <canvas id="manaCurveChart"></canvas>
+            </div>
+            <div style="display: flex; gap: 20px;">
+                <div class="chart-box" style="flex: 1;">
+                    <h3>Colors</h3>
+                    <canvas id="colorPieChart"></canvas>
+                </div>
+                <div class="chart-box" style="flex: 1;">
+                    <h3>Card Types</h3>
+                    <canvas id="typePieChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Élément pour afficher l'image au survol -->
+    <img id="card-preview" src="" alt="Prévisualisation">
+
+    <script>
+        // =========================================================
+        // === C'EST ICI QUE TU RENTRES TES CARTES ===
+        // =========================================================
+        const deck = [
+            { name: "Kharos, Master Of The Arena", qty: 1, cost: "{1}{W}{R}{G}", cmc: 4, type: "Commander", img: "Kharos_Master_of_the_Arena.png" },
+            { name: "Tracker Of The Pit", qty: 1, cost: "{G}", cmc: 1, type: "Creatures", img: "Tracker_of_the_Pit.png" },
+            { name: "Arena Scout", qty: 1, cost: "{G}", cmc: 1, type: "Creatures", img: "Arena_Scout.png" },
+            { name: "Arena Doctor", qty: 1, cost: "{W}", cmc: 1, type: "Creatures", img: "Arena_Doctor.png" },
+            { name: "Loyal Sentinel", qty: 1, cost: "{W}", cmc: 1, type: "Creatures", img: "Loyal_Sentinel.png" },
+            { name: "Crowd-mongers", qty: 1, cost: "{R}", cmc: 1, type: "Creatures", img: "Crowd-Mongers.png" },
+            { name: "Gladiator's Companion", qty: 1, cost: "{1}{G}", cmc: 2, type: "Creatures", img: "Gladiator_s_Companion.png" },
+            { name: "Roaring Striker", qty: 1, cost: "{1}{G}", cmc: 2, type: "Creatures", img: "Roaring_Striker.png" },
+            { name: "Supplier To The Colosseum", qty: 1, cost: "{1}{G}", cmc: 2, type: "Creatures", img: "Supplier_to_the_Colosseum.png" },
+            { name: "Solar Warrior", qty: 1, cost: "{1}{W}", cmc: 2, type: "Creatures", img: "Solar_Warrior.png" },
+            { name: "Inspiring Captain", qty: 1, cost: "{1}{W}", cmc: 2, type: "Creatures", img: "Inspiring_Captain.png" },
+            { name: "Fire-cannon Duellist", qty: 1, cost: "{1}{R}", cmc: 2, type: "Creatures", img: "Fire-Cannon_Duellist.png" },
+            { name: "Pit Saboteur", qty: 1, cost: "{1}{R}", cmc: 2, type: "Creatures", img: "Pit_Saboteur.png" },
+            { name: "Fierce Challenger", qty: 1, cost: "{2}{G}", cmc: 3, type: "Creatures", img: "Fierce_Challenger.png" },
+            { name: "Relentless Tamer", qty: 1, cost: "{2}{G}", cmc: 3, type: "Creatures", img: "Relentless_Tamer.png" },
+            { name: "Star Dust Paladin", qty: 1, cost: "{2}{W}", cmc: 3, type: "Creatures", img: "Star_Dust_Paladin.png" },
+            { name: "Audience Favourite", qty: 1, cost: "{2}{R}", cmc: 3, type: "Creatures", img: "Audience_Favourite.png" },
+            { name: "Thalor, Master Of Beasts", qty: 1, cost: "{1}{G}{G}", cmc: 3, type: "Planeswalkers", img: "Thalor_Master_of_Beasts.png" }
+        ];
+        // =========================================================
+
+        const categoriesOrder = ["Commander", "Creatures", "Planeswalkers", "Sorceries", "Instants", "Artifacts", "Enchantments", "Lands"];
+
+        // Fonction pour transformer {2}{B} en icones HTML
+        function formatManaCost(costString) {
+            if (!costString) return "";
+            return costString.replace(/{([^}]+)}/g, function(match, p1) {
+                let colorClass = "mana-num";
+                if (['W','U','B','R','G','C'].includes(p1)) colorClass = "mana-" + p1;
+                return `<span class="mana-icon ${colorClass}">${p1}</span>`;
+            });
+        }
+
+        // 1. GÉNÉRATION DE LA LISTE DES CARTES
+        const listContainer = document.getElementById('deck-list');
+        const previewImg = document.getElementById('card-preview');
+
+        // Positionnement intelligent de l'image de prévisualisation.
+        // L'aperçu reste toujours dans la fenêtre, notamment sur les dernières cartes.
+        function positionPreview(e) {
+            if (previewImg.style.display !== 'block') return;
+
+            const gap = 15;
+            const padding = 12;
+            const previewWidth = previewImg.offsetWidth || 250;
+            const previewHeight = previewImg.offsetHeight || 350;
+
+            let left = e.clientX + gap;
+            let top = e.clientY - previewHeight / 2;
+
+            // Si l'aperçu dépasse à droite, on le place à gauche du curseur.
+            if (left + previewWidth > window.innerWidth - padding) {
+                left = e.clientX - previewWidth - gap;
+            }
+
+            // Si l'aperçu dépasse en bas, on le remonte.
+            if (top + previewHeight > window.innerHeight - padding) {
+                top = window.innerHeight - previewHeight - padding;
+            }
+
+            // S'il dépasse en haut, on le redescend.
+            if (top < padding) {
+                top = padding;
+            }
+
+            // Sécurité pour les petits écrans.
+            if (left < padding) {
+                left = padding;
+            }
+
+            previewImg.style.left = `${left}px`;
+            previewImg.style.top = `${top}px`;
+        }
+
+        document.addEventListener('mousemove', positionPreview);
+
+        categoriesOrder.forEach(category => {
+            const cardsInCategory = deck.filter(c => c.type === category);
+            if (cardsInCategory.length === 0) return;
+
+            const totalCards = cardsInCategory.reduce((sum, c) => sum + c.qty, 0);
+
+            // Création du titre de la catégorie
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'category-group';
+            groupDiv.innerHTML = `<div class="category-title">${category} (${totalCards})</div>`;
+
+            // Ajout des cartes
+            cardsInCategory.forEach(card => {
+                const row = document.createElement('div');
+                row.className = 'card-row';
+                row.innerHTML = `
+                    <div class="card-qty">${card.qty}x</div>
+                    <div class="card-name">${card.name}</div>
+                    <div class="card-cost">${formatManaCost(card.cost)}</div>
+                `;
+                
+                // Événements pour afficher/masquer l'image
+                row.addEventListener('mouseenter', (e) => {
+                    previewImg.src = card.img;
+                    previewImg.style.display = 'block';
+                    positionPreview(e);
+                });
+                row.addEventListener('mouseleave', () => {
+                    previewImg.style.display = 'none';
+                });
+
+                groupDiv.appendChild(row);
+            });
+
+            listContainer.appendChild(groupDiv);
+        });
+
+
+        // 2. PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES
+        
+        // --- Graphique des couleurs de mana ---
+        const colorCounts = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+        deck.forEach(card => {
+            if (card.cost) {
+                // Compte chaque apparition des lettres WUBRG dans le texte du coût
+                const matches = card.cost.match(/[WUBRG]/g);
+                if (matches) {
+                    matches.forEach(color => colorCounts[color] += card.qty);
+                }
+            }
+        });
+
+        new Chart(document.getElementById('colorPieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Blanc', 'Bleu', 'Noir', 'Rouge', 'Vert'],
+                datasets: [{
+                    data: [colorCounts.W, colorCounts.U, colorCounts.B, colorCounts.R, colorCounts.G],
+                    backgroundColor: ['#f8f6d8', '#c1d7e9', '#bab1ab', '#e49977', '#a3c095'],
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+
+        // --- Graphique de la Courbe de mana ---
+        // Indices : 0, 1, 2, 3, 4, 5, 6+
+        const curveCreatures = [0, 0, 0, 0, 0, 0, 0]; 
+        const curveNonCreatures = [0, 0, 0, 0, 0, 0, 0];
+
+        deck.forEach(card => {
+            if (card.type === 'Lands') return; // On ignore les terrains dans la courbe
+            
+            let cmcIndex = card.cmc >= 6 ? 6 : card.cmc;
+            
+            if (card.type === 'Creatures' || card.type === 'Commander') {
+                curveCreatures[cmcIndex] += card.qty;
+            } else {
+                curveNonCreatures[cmcIndex] += card.qty;
+            }
+        });
+
+        new Chart(document.getElementById('manaCurveChart'), {
+            type: 'bar',
+            data: {
+                labels: ['0', '1', '2', '3', '4', '5', '6+'],
+                datasets: [
+                    {
+                        label: 'Creatures',
+                        data: curveCreatures,
+                        backgroundColor: '#8b846d' // Couleur stylisée "Creature"
+                    },
+                    {
+                        label: 'Non-Creatures',
+                        data: curveNonCreatures,
+                        backgroundColor: '#6c8b9b' // Couleur stylisée "Sort"
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+
+        // --- Graphique des Types de cartes ---
+        const typeLabels = [];
+        const typeData = [];
+        const typeColors = ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0', '#9966ff', '#c9cbcf'];
+
+        categoriesOrder.forEach(category => {
+            const count = deck.filter(c => c.type === category).reduce((sum, c) => sum + c.qty, 0);
+            if (count > 0) {
+                typeLabels.push(category);
+                typeData.push(count);
+            }
+        });
+
+        new Chart(document.getElementById('typePieChart'), {
+            type: 'pie',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    data: typeData,
+                    backgroundColor: typeColors.slice(0, typeLabels.length)
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'right', labels: { boxWidth: 10 } } } }
+        });
+
+    </script>
+</body>
+</html>
