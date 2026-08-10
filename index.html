@@ -6,7 +6,6 @@
     <title>Deck de Lukas</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* --- Styles généraux --- */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f4f4;
@@ -26,14 +25,12 @@
         }
         .deck-list-container {
             flex: 1;
-            min-width: 0; /* évite le débordement */
         }
         .charts-container {
             flex: 1;
             display: flex;
             flex-direction: column;
             gap: 30px;
-            min-width: 0;
         }
         h1, h2, h3 {
             margin-top: 0;
@@ -54,7 +51,6 @@
             padding: 4px 0;
             border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
-            touch-action: manipulation; /* améliore le clic sur mobile */
         }
         .card-row:hover {
             background-color: #f9f9f9;
@@ -62,21 +58,16 @@
         .card-qty {
             width: 30px;
             color: #666;
-            flex-shrink: 0;
         }
         .card-name {
             flex: 1;
             font-weight: 500;
-            word-break: break-word;
-            padding-right: 8px;
         }
         .card-cost {
             text-align: right;
-            flex-shrink: 0;
-            white-space: nowrap;
         }
-
-        /* Icônes de mana */
+        
+        /* Style des symboles de mana */
         .mana-icon {
             display: inline-block;
             width: 18px;
@@ -97,7 +88,7 @@
         .mana-G { background-color: #a3c095; }
         .mana-C, .mana-num { background-color: #cac5c0; }
 
-        /* Prévisualisation image */
+        /* Image au survol */
         #card-preview {
             display: none;
             position: fixed;
@@ -107,28 +98,18 @@
             max-height: 75vh;
             object-fit: contain;
             border-radius: 12px;
-            pointer-events: none; /* pour permettre le clic à travers sur desktop */
+            pointer-events: none;
             box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-            transition: opacity 0.15s;
         }
-        /* Version mobile : l'image devient cliquable pour la fermer */
-        #card-preview.clickable {
-            pointer-events: auto;
-            cursor: pointer;
-        }
-
+        
         .chart-box {
             background: #fff;
             border: 1px solid #eaeaea;
             padding: 15px;
             border-radius: 8px;
         }
-        .chart-box canvas {
-            max-width: 100%;
-            height: auto !important;
-        }
-
-        /* --- Styles responsifs --- */
+        
+        /* Responsive */
         @media (max-width: 800px) {
             .container {
                 flex-direction: column;
@@ -212,13 +193,12 @@
                 <h3>Mana Values</h3>
                 <canvas id="manaCurveChart"></canvas>
             </div>
-            <!-- Deux graphiques côte à côte sur desktop, en colonne sur mobile -->
-            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div class="chart-box" style="flex: 1; min-width: 150px;">
+            <div style="display: flex; gap: 20px;">
+                <div class="chart-box" style="flex: 1;">
                     <h3>Colors</h3>
                     <canvas id="colorPieChart"></canvas>
                 </div>
-                <div class="chart-box" style="flex: 1; min-width: 150px;">
+                <div class="chart-box" style="flex: 1;">
                     <h3>Card Types</h3>
                     <canvas id="typePieChart"></canvas>
                 </div>
@@ -226,12 +206,12 @@
         </div>
     </div>
 
-    <!-- Élément pour afficher l'image au survol / clic -->
+    <!-- Élément pour afficher l'image au survol -->
     <img id="card-preview" src="" alt="Prévisualisation">
 
     <script>
         // =========================================================
-        // === DONNÉES DU DECK (inchangées) ===
+        // === C'EST ICI QUE TU RENTRES TES CARTES ===
         // =========================================================
         const deck = [
             { name: "Kharos, Master Of The Arena", qty: 1, cost: "{1}{W}{R}{G}", cmc: 4, type: "Commander", img: "Kharos_Master_of_the_Arena.png" },
@@ -271,7 +251,8 @@
         const listContainer = document.getElementById('deck-list');
         const previewImg = document.getElementById('card-preview');
 
-        // ---- Positionnement de l'image (survol ou clic) ----
+        // Positionnement intelligent de l'image de prévisualisation.
+        // L'aperçu reste toujours dans la fenêtre, notamment sur les dernières cartes.
         function positionPreview(e) {
             if (previewImg.style.display !== 'block') return;
 
@@ -292,9 +273,13 @@
             if (top + previewHeight > window.innerHeight - padding) {
                 top = window.innerHeight - previewHeight - padding;
             }
+
+            // S'il dépasse en haut, on le redescend.
             if (top < padding) {
                 top = padding;
             }
+
+            // Sécurité pour les petits écrans.
             if (left < padding) {
                 left = padding;
             }
@@ -303,41 +288,7 @@
             previewImg.style.top = `${top}px`;
         }
 
-        // ---- Gestion de l'affichage de l'aperçu ----
-        let currentCardImg = null; // pour le clic
-
-        function showPreview(src, event) {
-            previewImg.src = src;
-            previewImg.style.display = 'block';
-            // On rend l'image cliquable pour la fermer (mobile)
-            previewImg.classList.add('clickable');
-            // On la positionne
-            if (event) positionPreview(event);
-            currentCardImg = src;
-        }
-
-        function hidePreview() {
-            previewImg.style.display = 'none';
-            previewImg.classList.remove('clickable');
-            currentCardImg = null;
-        }
-
-        // Clic sur l'image elle-même pour la fermer
-        previewImg.addEventListener('click', function(e) {
-            e.stopPropagation();
-            hidePreview();
-        });
-
-        // Clic ailleurs pour fermer
-        document.addEventListener('click', function(e) {
-            if (previewImg.style.display === 'block' && !e.target.closest('.card-row') && e.target !== previewImg) {
-                hidePreview();
-            }
-        });
-
-        // ---- Événements pour chaque carte ----
-        // On stocke les handlers pour pouvoir les référencer
-        const rowHandlers = new Map();
+        document.addEventListener('mousemove', positionPreview);
 
         categoriesOrder.forEach(category => {
             const cardsInCategory = deck.filter(c => c.type === category);
@@ -345,10 +296,12 @@
 
             const totalCards = cardsInCategory.reduce((sum, c) => sum + c.qty, 0);
 
+            // Création du titre de la catégorie
             const groupDiv = document.createElement('div');
             groupDiv.className = 'category-group';
             groupDiv.innerHTML = `<div class="category-title">${category} (${totalCards})</div>`;
 
+            // Ajout des cartes
             cardsInCategory.forEach(card => {
                 const row = document.createElement('div');
                 row.className = 'card-row';
@@ -357,31 +310,15 @@
                     <div class="card-name">${card.name}</div>
                     <div class="card-cost">${formatManaCost(card.cost)}</div>
                 `;
-
-                // --- Gestion du survol (desktop) ---
+                
+                // Événements pour afficher/masquer l'image
                 row.addEventListener('mouseenter', (e) => {
-                    showPreview(card.img, e);
+                    previewImg.src = card.img;
+                    previewImg.style.display = 'block';
+                    positionPreview(e);
                 });
                 row.addEventListener('mouseleave', () => {
-                    // Ne ferme que si ce n'est pas un clic qui maintient l'image
-                    // On vérifie si l'image est affichée suite à un clic : on ne ferme pas au mouseleave
-                    // On utilise currentCardImg pour savoir si c'est un clic ou un survol
-                    // Si currentCardImg est défini, c'est un clic, on ne ferme pas.
-                    if (!currentCardImg) {
-                        hidePreview();
-                    }
-                });
-
-                // --- Gestion du clic (mobile & desktop) ---
-                row.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    // Si l'image est déjà affichée avec la même carte, on la ferme
-                    if (previewImg.style.display === 'block' && currentCardImg === card.img) {
-                        hidePreview();
-                    } else {
-                        // Sinon on affiche l'image
-                        showPreview(card.img, e);
-                    }
+                    previewImg.style.display = 'none';
                 });
 
                 groupDiv.appendChild(row);
@@ -390,27 +327,14 @@
             listContainer.appendChild(groupDiv);
         });
 
-        // Mise à jour de la position lors du défilement ou redimensionnement
-        document.addEventListener('scroll', () => {
-            if (previewImg.style.display === 'block') {
-                // On peut repositionner par rapport au curseur, mais on le fait via mousemove.
-                // Pour le clic, on pourrait laisser l'image à sa position, c'est correct.
-            }
-        });
 
-        // Pour le survol, on continue de positionner avec mousemove
-        document.addEventListener('mousemove', (e) => {
-            if (previewImg.style.display === 'block' && !currentCardImg) {
-                // Seulement si l'image est affichée par survol (pas par clic)
-                positionPreview(e);
-            }
-        });
-
-        // 2. PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES (inchangé)
+        // 2. PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES
+        
         // --- Graphique des couleurs de mana ---
         const colorCounts = { W: 0, U: 0, B: 0, R: 0, G: 0 };
         deck.forEach(card => {
             if (card.cost) {
+                // Compte chaque apparition des lettres WUBRG dans le texte du coût
                 const matches = card.cost.match(/[WUBRG]/g);
                 if (matches) {
                     matches.forEach(color => colorCounts[color] += card.qty);
@@ -433,12 +357,15 @@
         });
 
         // --- Graphique de la Courbe de mana ---
-        const curveCreatures = [0, 0, 0, 0, 0, 0, 0];
+        // Indices : 0, 1, 2, 3, 4, 5, 6+
+        const curveCreatures = [0, 0, 0, 0, 0, 0, 0]; 
         const curveNonCreatures = [0, 0, 0, 0, 0, 0, 0];
 
         deck.forEach(card => {
-            if (card.type === 'Lands') return;
+            if (card.type === 'Lands') return; // On ignore les terrains dans la courbe
+            
             let cmcIndex = card.cmc >= 6 ? 6 : card.cmc;
+            
             if (card.type === 'Creatures' || card.type === 'Commander') {
                 curveCreatures[cmcIndex] += card.qty;
             } else {
@@ -454,12 +381,12 @@
                     {
                         label: 'Creatures',
                         data: curveCreatures,
-                        backgroundColor: '#8b846d'
+                        backgroundColor: '#8b846d' // Couleur stylisée "Creature"
                     },
                     {
                         label: 'Non-Creatures',
                         data: curveNonCreatures,
-                        backgroundColor: '#6c8b9b'
+                        backgroundColor: '#6c8b9b' // Couleur stylisée "Sort"
                     }
                 ]
             },
@@ -496,6 +423,7 @@
             },
             options: { responsive: true, plugins: { legend: { position: 'right', labels: { boxWidth: 10 } } } }
         });
+
     </script>
 </body>
 </html>
