@@ -129,6 +129,53 @@
                 width: 100%;
             }
         }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 10px;
+                border-radius: 4px;
+            }
+            h1 {
+                font-size: 1.4em;
+                margin-bottom: 10px;
+            }
+            h3 {
+                font-size: 1em;
+                margin-bottom: 8px;
+            }
+            .category-title {
+                font-size: 1em;
+            }
+            .card-row {
+                padding: 6px 0;
+            }
+            .card-qty {
+                width: 24px;
+                font-size: 0.9em;
+            }
+            .card-name {
+                font-size: 0.95em;
+            }
+            .mana-icon {
+                width: 16px;
+                height: 16px;
+                line-height: 16px;
+                font-size: 10px;
+                margin-left: 1px;
+            }
+            .chart-box {
+                padding: 10px;
+            }
+            #card-preview {
+                max-width: 80vw;
+                max-height: 60vh;
+                width: auto;
+                border-radius: 8px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -204,41 +251,39 @@
         const listContainer = document.getElementById('deck-list');
         const previewImg = document.getElementById('card-preview');
 
+        let hoveredRow = null;
+
         // Positionnement intelligent de l'image de prévisualisation.
         // L'aperçu reste toujours dans la fenêtre, notamment sur les dernières cartes.
-        function positionPreview(e) {
-            if (previewImg.style.display !== 'block') return;
+        function positionPreview() {
+            if (!hoveredRow || previewImg.style.display !== 'block') return;
 
-            const gap = 15;
-            const padding = 12;
-            const previewWidth = previewImg.offsetWidth || 250;
-            const previewHeight = previewImg.offsetHeight || 350;
+            const rect = hoveredRow.getBoundingClientRect();
+            const gap = 15;          // espace entre la carte et l'image
+            const padding = 12;      // marge de sécurité par rapport aux bords de l'écran
+            const imgWidth = previewImg.offsetWidth || 250;
+            const imgHeight = previewImg.offsetHeight || 350;
 
-            let left = e.clientX + gap;
-            let top = e.clientY - previewHeight / 2;
+            // Position à droite de la ligne
+            let left = rect.right + gap;
+            let top = rect.top + (rect.height - imgHeight) / 2; // centrage vertical
 
-            // Si l'aperçu dépasse à droite, on le place à gauche du curseur.
-            if (left + previewWidth > window.innerWidth - padding) {
-                left = e.clientX - previewWidth - gap;
+            // Ajustements pour rester dans la fenêtre
+            if (left + imgWidth > window.innerWidth - padding) {
+                left = rect.left - imgWidth - gap; // passe à gauche si trop à droite
             }
-
-            // Si l'aperçu dépasse en bas, on le remonte.
-            if (top + previewHeight > window.innerHeight - padding) {
-                top = window.innerHeight - previewHeight - padding;
+            if (top + imgHeight > window.innerHeight - padding) {
+                top = window.innerHeight - imgHeight - padding;
             }
-
-            // S'il dépasse en haut, on le redescend.
             if (top < padding) {
                 top = padding;
             }
-
-            // Sécurité pour les petits écrans.
             if (left < padding) {
                 left = padding;
             }
 
-            previewImg.style.left = `${left}px`;
-            previewImg.style.top = `${top}px`;
+            previewImg.style.left = left + 'px';
+            previewImg.style.top = top + 'px';
         }
 
         document.addEventListener('mousemove', positionPreview);
@@ -266,13 +311,38 @@
                 
                 // Événements pour afficher/masquer l'image
                 row.addEventListener('mouseenter', (e) => {
+                    hoveredRow = e.currentTarget;
                     previewImg.src = card.img;
                     previewImg.style.display = 'block';
-                    positionPreview(e);
+                    positionPreview(); // positionne sans attendre le mouvement
                 });
+
                 row.addEventListener('mouseleave', () => {
+                    hoveredRow = null;
                     previewImg.style.display = 'none';
                 });
+
+                row.addEventListener('click', (e) => {
+                    e.stopPropagation(); // pour éviter la propagation
+                    if (hoveredRow === e.currentTarget && previewImg.style.display === 'block') {
+                        // Si déjà affiché, on le masque
+                        hoveredRow = null;
+                        previewImg.style.display = 'none';
+                    } else {
+                        hoveredRow = e.currentTarget;
+                        previewImg.src = card.img;
+                        previewImg.style.display = 'block';
+                        positionPreview();
+                    }
+                });
+                // Pour fermer l'image en cliquant ailleurs
+                document.addEventListener('click', () => {
+                    hoveredRow = null;
+                    previewImg.style.display = 'none';
+                });
+
+                window.addEventListener('scroll', positionPreview, true); // capture phase pour les scrolls internes
+                window.addEventListener('resize', positionPreview);
 
                 groupDiv.appendChild(row);
             });
